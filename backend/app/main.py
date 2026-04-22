@@ -6,7 +6,7 @@ from typing import Optional
 from app.data import SPORTS, get_all_teams, get_teams_by_sport, get_team
 from app.analyzer import analyze_team, analyze_matchup
 
-app = FastAPI(title="AI Tactical Analyzer", version="1.0.0")
+app = FastAPI(title="AI Tactical Analyzer", version="2.0.0")
 
 # Disable CORS. Do not remove this for full-stack development.
 app.add_middleware(
@@ -40,15 +40,15 @@ async def list_sports():
 @app.get("/api/teams")
 async def list_teams(sport: Optional[str] = None):
     if sport:
-        teams = get_teams_by_sport(sport)
+        teams = await get_teams_by_sport(sport)
     else:
-        teams = get_all_teams()
+        teams = await get_all_teams()
     return {"teams": teams, "count": len(teams)}
 
 
 @app.get("/api/teams/{team_id}")
 async def get_team_details(team_id: str):
-    team = get_team(team_id)
+    team = await get_team(team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     return {"team": team}
@@ -56,7 +56,7 @@ async def get_team_details(team_id: str):
 
 @app.post("/api/analyze/team")
 async def analyze_team_endpoint(request: TeamAnalysisRequest):
-    team = get_team(request.team_id)
+    team = await get_team(request.team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
     analysis = analyze_team(team)
@@ -65,8 +65,8 @@ async def analyze_team_endpoint(request: TeamAnalysisRequest):
 
 @app.post("/api/analyze/matchup")
 async def analyze_matchup_endpoint(request: MatchupRequest):
-    team1 = get_team(request.team1_id)
-    team2 = get_team(request.team2_id)
+    team1 = await get_team(request.team1_id)
+    team2 = await get_team(request.team2_id)
     if not team1:
         raise HTTPException(status_code=404, detail=f"Team '{request.team1_id}' not found")
     if not team2:

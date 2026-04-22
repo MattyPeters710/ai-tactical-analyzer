@@ -33,7 +33,6 @@ import {
   Shield,
   Zap,
   Users,
-  TrendingUp,
   ChevronRight,
   ArrowLeft,
   Loader2,
@@ -284,45 +283,32 @@ function TeamsPage({
             className="bg-gray-900/50 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-all group"
           >
             <div className="flex items-start gap-4">
-              <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
-                style={{ backgroundColor: team.logo_color + "33", borderColor: team.logo_color, borderWidth: 2 }}
-              >
-                {team.name.charAt(0)}
-              </div>
+              {team.logo_url ? (
+                <img
+                  src={team.logo_url}
+                  alt={team.name}
+                  className="w-12 h-12 rounded-lg shrink-0 object-contain bg-white/5 p-1"
+                />
+              ) : (
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
+                  style={{ backgroundColor: team.logo_color + "33", borderColor: team.logo_color, borderWidth: 2 }}
+                >
+                  {team.name.charAt(0)}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-lg truncate">{team.name}</h3>
-                <p className="text-gray-500 text-sm">{team.league} - {team.country}</p>
+                <p className="text-gray-500 text-sm truncate">
+                  {team.league}{team.country ? ` \u00b7 ${team.country}` : ""}
+                </p>
               </div>
             </div>
             <div className="mt-4 space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Users className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-400">Formation:</span>
-                <span className="text-emerald-400 font-mono">{team.formation}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Zap className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-400">Style:</span>
-                <span className="text-cyan-400">{team.style}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <TrendingUp className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-400">Form:</span>
-                <div className="flex gap-1">
-                  {team.recent_form.map((f, i) => (
-                    <span
-                      key={i}
-                      className={`w-6 h-6 rounded text-xs flex items-center justify-center font-bold ${
-                        f === "W" ? "bg-emerald-500/20 text-emerald-400" :
-                        f === "D" ? "bg-yellow-500/20 text-yellow-400" :
-                        "bg-red-500/20 text-red-400"
-                      }`}
-                    >
-                      {f}
-                    </span>
-                  ))}
-                </div>
+                <span className="text-gray-400">Code:</span>
+                <span className="text-emerald-400 font-mono">{team.abbreviation || team.short_name || "—"}</span>
               </div>
             </div>
             <button
@@ -340,8 +326,11 @@ function TeamsPage({
 
 /* ============ ANALYSIS PAGE ============ */
 function AnalysisPage({ analysis, onBack }: { analysis: TeamAnalysis; onBack: () => void }) {
+  const labelFor = (key: string): string =>
+    analysis.stat_labels?.[key] ||
+    key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const radarData = Object.entries(analysis.stats).map(([key, value]) => ({
-    stat: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    stat: labelFor(key),
     value,
     fullMark: 100,
   }));
@@ -352,9 +341,22 @@ function AnalysisPage({ analysis, onBack }: { analysis: TeamAnalysis; onBack: ()
         <button onClick={onBack} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
+        {analysis.logo_url && (
+          <img
+            src={analysis.logo_url}
+            alt={analysis.team_name}
+            className="w-14 h-14 rounded-lg object-contain bg-white/5 p-1"
+          />
+        )}
         <div>
           <h2 className="text-3xl font-bold">{analysis.team_name}</h2>
-          <p className="text-gray-500">{analysis.formation} - {analysis.style}</p>
+          <p className="text-gray-500">
+            {analysis.league}{analysis.country ? ` \u00b7 ${analysis.country}` : ""}
+            {analysis.record_summary ? ` \u00b7 Record ${analysis.record_summary}` : ""}
+          </p>
+          {analysis.standing_summary && (
+            <p className="text-xs text-gray-600 mt-0.5">{analysis.standing_summary}</p>
+          )}
         </div>
       </div>
 
@@ -400,7 +402,7 @@ function AnalysisPage({ analysis, onBack }: { analysis: TeamAnalysis; onBack: ()
             {analysis.top_attributes.map((attr) => (
               <div key={attr.name} className="flex items-center justify-between">
                 <div>
-                  <span className="text-gray-300 capitalize">{attr.name.replace(/_/g, " ")}</span>
+                  <span className="text-gray-300">{attr.label || labelFor(attr.name)}</span>
                   <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
                     {attr.tier}
                   </span>
@@ -423,7 +425,7 @@ function AnalysisPage({ analysis, onBack }: { analysis: TeamAnalysis; onBack: ()
             {analysis.weak_attributes.map((attr) => (
               <div key={attr.name} className="flex items-center justify-between">
                 <div>
-                  <span className="text-gray-300 capitalize">{attr.name.replace(/_/g, " ")}</span>
+                  <span className="text-gray-300">{attr.label || labelFor(attr.name)}</span>
                   <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400">
                     {attr.tier}
                   </span>
@@ -487,19 +489,22 @@ function AnalysisPage({ analysis, onBack }: { analysis: TeamAnalysis; onBack: ()
         </div>
       </div>
 
-      {/* Key Players */}
+      {/* Season snapshot */}
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5 text-emerald-400" /> Key Players
+          <Activity className="w-5 h-5 text-emerald-400" /> Season Snapshot
         </h3>
-        <div className="flex flex-wrap gap-3">
-          {analysis.key_players.map((p, i) => (
-            <div key={i} className="px-4 py-2 bg-gray-800 rounded-lg border border-gray-700 text-sm text-gray-300">
-              {p}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Object.entries(analysis.season_record).map(([k, v]) => (
+            <div key={k} className="p-3 bg-gray-800/50 rounded-lg">
+              <p className="text-xs text-gray-500 capitalize">{k.replace(/_/g, " ")}</p>
+              <p className="text-lg font-semibold text-gray-200">{v}</p>
             </div>
           ))}
         </div>
-        <p className="mt-4 text-gray-400 text-sm italic">{analysis.tactical_notes}</p>
+        <p className="mt-4 text-gray-500 text-xs italic">
+          Performance data sourced live from {analysis.source}. Ratings are derived from this season\u2019s real results.
+        </p>
       </div>
 
       {/* Tactical Recommendations */}
@@ -603,14 +608,17 @@ function MatchupPage({
 
 /* ============ MATCHUP RESULT PAGE ============ */
 function MatchupResultPage({ matchup, onBack }: { matchup: MatchupAnalysis; onBack: () => void }) {
+  const labelFor = (key: string): string =>
+    matchup.stat_labels?.[key] ||
+    key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const comparisonData = Object.entries(matchup.stat_comparison).map(([key, comp]) => ({
-    stat: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    stat: comp.label || labelFor(key),
     [matchup.team1.name]: comp.team1_value,
     [matchup.team2.name]: comp.team2_value,
   }));
 
   const radarData = Object.entries(matchup.stat_comparison).map(([key, comp]) => ({
-    stat: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    stat: comp.label || labelFor(key),
     team1: comp.team1_value,
     team2: comp.team2_value,
     fullMark: 100,
@@ -628,8 +636,15 @@ function MatchupResultPage({ matchup, onBack }: { matchup: MatchupAnalysis; onBa
       {/* Teams Header */}
       <div className="grid grid-cols-3 gap-4 items-center">
         <div className="text-center bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+          {matchup.team1.logo_url && (
+            <img
+              src={matchup.team1.logo_url}
+              alt={matchup.team1.name}
+              className="w-14 h-14 mx-auto mb-2 object-contain bg-white/5 p-1 rounded-lg"
+            />
+          )}
           <p className="text-2xl font-bold">{matchup.team1.name}</p>
-          <p className="text-gray-500 text-sm">{matchup.team1.formation}</p>
+          <p className="text-gray-500 text-sm">{matchup.team1.record_summary}</p>
           <p className="text-4xl font-bold text-emerald-400 mt-2">{matchup.team1.overall_rating}</p>
         </div>
         <div className="text-center">
@@ -639,8 +654,15 @@ function MatchupResultPage({ matchup, onBack }: { matchup: MatchupAnalysis; onBa
           <p className="text-gray-500 text-sm">VS</p>
         </div>
         <div className="text-center bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+          {matchup.team2.logo_url && (
+            <img
+              src={matchup.team2.logo_url}
+              alt={matchup.team2.name}
+              className="w-14 h-14 mx-auto mb-2 object-contain bg-white/5 p-1 rounded-lg"
+            />
+          )}
           <p className="text-2xl font-bold">{matchup.team2.name}</p>
-          <p className="text-gray-500 text-sm">{matchup.team2.formation}</p>
+          <p className="text-gray-500 text-sm">{matchup.team2.record_summary}</p>
           <p className="text-4xl font-bold text-cyan-400 mt-2">{matchup.team2.overall_rating}</p>
         </div>
       </div>
@@ -720,7 +742,7 @@ function MatchupResultPage({ matchup, onBack }: { matchup: MatchupAnalysis; onBa
             <div className="space-y-2">
               {matchup.team1_advantages.map((adv, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300 capitalize">{adv.stat.replace(/_/g, " ")}</span>
+                  <span className="text-gray-300">{adv.label || labelFor(adv.stat)}</span>
                   <span className="text-emerald-400 font-bold">+{adv.margin}</span>
                 </div>
               ))}
@@ -735,7 +757,7 @@ function MatchupResultPage({ matchup, onBack }: { matchup: MatchupAnalysis; onBa
             <div className="space-y-2">
               {matchup.team2_advantages.map((adv, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300 capitalize">{adv.stat.replace(/_/g, " ")}</span>
+                  <span className="text-gray-300">{adv.label || labelFor(adv.stat)}</span>
                   <span className="text-cyan-400 font-bold">+{adv.margin}</span>
                 </div>
               ))}
