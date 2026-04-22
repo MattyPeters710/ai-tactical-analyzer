@@ -1,135 +1,326 @@
 """
-AI Tactical Analyzer Engine - Provides deep tactical analysis for sports teams.
-Uses statistical modeling, pattern recognition, and tactical frameworks.
+AI Tactical Analyzer Engine.
+
+Generates narrative tactical analysis from real-world performance data
+(season record, goal/point differentials, recent form) returned by the
+ESPN-backed `data` layer. Ratings are derived, not invented.
 """
 
-import random
-from typing import Dict, Any, List, Tuple
+from __future__ import annotations
+
+from typing import Any, Dict, List, Tuple
+
+# Human-readable labels for the derived performance stats.
+STAT_LABELS: Dict[str, str] = {
+    "attack": "Attack",
+    "defense": "Defense",
+    "efficiency": "Efficiency",
+    "differential": "Point Differential",
+    "consistency": "Consistency",
+    "form": "Recent Form",
+}
 
 
 def _calculate_overall_rating(stats: Dict[str, int]) -> float:
-    """Calculate weighted overall rating from stats."""
+    if not stats:
+        return 0.0
     values = list(stats.values())
     return round(sum(values) / len(values), 1)
 
 
 def _get_stat_tier(value: int) -> str:
-    """Classify a stat value into a tier."""
-    if value >= 93:
+    if value >= 88:
         return "Elite"
-    elif value >= 88:
+    if value >= 78:
         return "Excellent"
-    elif value >= 83:
+    if value >= 68:
         return "Very Good"
-    elif value >= 78:
-        return "Good"
-    elif value >= 73:
+    if value >= 55:
         return "Average"
-    else:
+    if value >= 40:
         return "Below Average"
+    return "Poor"
+
+
+def _sport_noun(sport: str) -> str:
+    if sport == "soccer":
+        return "goal"
+    if sport == "american_football":
+        return "point"
+    return "point"
+
+
+def _sport_noun_plural(sport: str) -> str:
+    return _sport_noun(sport) + "s"
+
+
+def _per_game(record: Dict[str, Any], key: str) -> float:
+    total = record.get(key)
+    gp = record.get("gamesPlayed") or 0
+    try:
+        if total is None or not gp:
+            return 0.0
+        return round(float(total) / float(gp), 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _record_string(team: Dict[str, Any]) -> str:
+    sr = team.get("season_record") or {}
+    summary = team.get("record_summary")
+    if summary:
+        return summary
+    if not sr:
+        return ""
+    if team["sport"] == "soccer":
+        return f"{sr.get('wins', 0)}-{sr.get('draws', 0)}-{sr.get('losses', 0)}"
+    return f"{sr.get('wins', 0)}-{sr.get('losses', 0)}"
 
 
 def _identify_tactical_identity(team: Dict[str, Any]) -> str:
-    """Generate a tactical identity description."""
     stats = team["stats"]
     sport = team["sport"]
+    atk = stats.get("attack", 0)
+    dfn = stats.get("defense", 0)
+    eff = stats.get("efficiency", 0)
+    form = stats.get("form", 0)
+    diff = stats.get("differential", 0)
 
-    if sport == "soccer":
-        if stats.get("possession", 0) >= 90 and stats.get("pressing", 0) >= 90:
-            return "Dominant Possession Controller - This team dictates the tempo of every match, suffocating opponents with relentless ball retention and coordinated pressing."
-        elif stats.get("pressing", 0) >= 93:
-            return "High-Intensity Presser - An aggressive team that wins the ball high and transitions rapidly. Opponents are given no time on the ball."
-        elif stats.get("pace", 0) >= 90 and stats.get("finishing", 0) >= 90:
-            return "Lethal Counter-Attacker - Devastating on the break with elite pace and clinical finishing. Thrives against teams that overcommit."
-        elif stats.get("set_pieces", 0) >= 90:
-            return "Set-Piece Specialist - A team that has mastered dead-ball situations, turning every corner and free-kick into a genuine scoring opportunity."
-        else:
-            return "Balanced Tactical Operator - A well-rounded team capable of adapting to different game situations."
-
-    elif sport == "basketball":
-        if stats.get("three_point", 0) >= 93:
-            return "3-Point Artillery - This team lives and dies by the three. When the shots fall, they're virtually unstoppable from beyond the arc."
-        elif stats.get("post_play", 0) >= 93:
-            return "Interior Dominator - Built around elite post play, this team punishes smaller lineups and controls the paint on both ends."
-        elif stats.get("fast_break", 0) >= 90:
-            return "Transition Tornado - Gets out and runs at every opportunity. Their pace and athleticism overwhelm slower teams."
-        elif stats.get("defense", 0) >= 90:
-            return "Defensive Fortress - Defense wins championships, and this team embodies that philosophy with elite versatility on that end."
-        else:
-            return "Balanced Contender - A well-constructed team with no glaring weaknesses."
-
-    elif sport == "american_football":
-        if stats.get("rushing_offense", 0) >= 93:
-            return "Ground-and-Pound Machine - This team establishes the run and imposes its physical will. When the rushing attack gets rolling, they're nearly impossible to stop."
-        elif stats.get("passing_offense", 0) >= 93:
-            return "Air Raid Operator - A pass-first offense that stretches defenses horizontally and vertically. The quarterback is the engine of everything."
-        elif stats.get("coaching", 0) >= 95:
-            return "Coaching Masterclass - Schematic superiority defines this team. They consistently outprepare and outadjust opponents."
-        else:
-            return "Complete Football Team - Balanced on both sides of the ball with a clear identity."
-
-    return "Tactical Unit"
+    if atk >= 80 and dfn >= 80:
+        if sport == "soccer":
+            return (
+                f"Complete Side — {team['name']} excels at both ends of the pitch, "
+                f"creating chances freely while suffocating opponents in defense."
+            )
+        return (
+            f"Two-Way Juggernaut — {team['name']} dominates on both offense and "
+            f"defense, overwhelming opponents with balanced excellence."
+        )
+    if atk >= 80 and dfn < 65:
+        if sport == "soccer":
+            return (
+                f"Relentless Attacker — {team['name']} plays wide-open, high-scoring "
+                f"football. They outscore rather than outlast their opponents."
+            )
+        return (
+            f"Offensive Powerhouse — {team['name']} leans on elite scoring output. "
+            f"Their formula: force opponents into a shootout."
+        )
+    if dfn >= 80 and atk < 65:
+        if sport == "soccer":
+            return (
+                f"Defensive Stalwart — {team['name']} grinds out results on the back "
+                f"of a miserly, well-organized backline."
+            )
+        return (
+            f"Defensive Fortress — {team['name']} wins games with suffocating defense "
+            f"and disciplined execution."
+        )
+    if form >= 80 and eff < 65:
+        return (
+            f"Surging Underdog — {team['name']} is peaking at the right time, "
+            f"riding a recent hot streak that has outpaced their season-long profile."
+        )
+    if eff >= 75 and diff >= 70:
+        return (
+            f"Efficient Winner — {team['name']} wins the games they are supposed to. "
+            f"Rarely blown out, consistently on the right side of close contests."
+        )
+    if form < 40 and eff >= 55:
+        return (
+            f"Slumping Contender — {team['name']} has the talent of a contender but "
+            f"is struggling for form at a critical stretch of the season."
+        )
+    return (
+        f"Balanced Operator — {team['name']} does not overwhelm in any single area but "
+        f"stays competitive through a well-rounded profile."
+    )
 
 
 def _generate_key_insights(team: Dict[str, Any]) -> List[str]:
-    """Generate specific tactical insights."""
     stats = team["stats"]
     sport = team["sport"]
-    insights = []
+    record = team.get("raw_record") or {}
+    form: List[str] = team.get("recent_form") or []
+    insights: List[str] = []
+    name = team["name"]
 
-    if sport == "soccer":
-        if stats.get("possession", 0) >= 90:
-            insights.append(f"With a possession rating of {stats['possession']}/100, {team['name']} controls the ball for extended periods, forcing opponents into reactive defending. This creates fatigue in the opposition and opens gaps in the final third.")
-        if stats.get("pressing", 0) >= 90:
-            insights.append(f"Their pressing intensity ({stats['pressing']}/100) means opponents average significantly fewer passes before losing possession. The high press recovers the ball in dangerous areas.")
-        if stats.get("finishing", 0) >= 88:
-            insights.append(f"Clinical finishing ({stats['finishing']}/100) means they convert a high percentage of chances. Low xG overperformance suggests elite individual quality in the final third.")
-        if stats.get("defense", 0) >= 87:
-            insights.append(f"Defensively solid ({stats['defense']}/100) with a well-organized backline. They concede few high-quality chances per game.")
-        if stats.get("set_pieces", 0) >= 85:
-            insights.append(f"Set pieces ({stats['set_pieces']}/100) are a genuine weapon. They score from dead-ball situations at a rate well above league average.")
-        if stats.get("pace", 0) >= 88:
-            insights.append(f"Exceptional pace ({stats['pace']}/100) in transition allows them to exploit high defensive lines and capitalize on turnover situations.")
+    avg_for = _per_game(record, "pointsFor")
+    avg_against = _per_game(record, "pointsAgainst")
+    gp = int(record.get("gamesPlayed") or 0) or None
+    wins = int(record.get("wins") or 0)
+    losses = int(record.get("losses") or 0)
+    ties = int(record.get("ties") or 0)
+    point_diff = record.get("pointDifferential")
 
-    elif sport == "basketball":
-        if stats.get("three_point", 0) >= 90:
-            insights.append(f"Elite 3-point shooting ({stats['three_point']}/100) stretches defenses to their limit. They generate the most wide-open 3s in the league through ball movement.")
-        if stats.get("playmaking", 0) >= 90:
-            insights.append(f"Outstanding playmaking ({stats['playmaking']}/100) means they rarely waste possessions. Ball movement creates high-quality looks consistently.")
-        if stats.get("defense", 0) >= 90:
-            insights.append(f"Defensive rating ({stats['defense']}/100) puts them among the league's best. Their switching scheme eliminates easy baskets.")
-        if stats.get("athleticism", 0) >= 90:
-            insights.append(f"Superior athleticism ({stats['athleticism']}/100) allows them to play a disruptive, high-energy style that wears down opponents.")
-        if stats.get("post_play", 0) >= 90:
-            insights.append(f"Dominant post play ({stats['post_play']}/100) creates mismatches that opponents cannot solve. The paint is their domain.")
-        if stats.get("clutch", 0) >= 88:
-            insights.append(f"Clutch performance ({stats['clutch']}/100) indicates this team elevates in high-pressure moments. They have the closer mentality needed for playoff success.")
+    if avg_for and gp:
+        noun = _sport_noun_plural(sport)
+        insights.append(
+            f"{name} averages {avg_for} {noun} per game over {gp} matches — "
+            f"their scoring output translates to an attack rating of "
+            f"{stats.get('attack', 0)}/100."
+        )
+    if avg_against and gp:
+        noun = _sport_noun_plural(sport)
+        insights.append(
+            f"Opponents average {avg_against} {noun} per game against {name}, "
+            f"yielding a defensive rating of {stats.get('defense', 0)}/100."
+        )
+    if gp:
+        if sport == "soccer":
+            insights.append(
+                f"Season record: {wins}W-{ties}D-{losses}L across {gp} matches. "
+                f"Points per game: {round((wins * 3 + ties) / gp, 2)}."
+            )
+        else:
+            win_pct = round(wins / gp * 100, 1) if gp else 0
+            insights.append(
+                f"Season record: {wins}-{losses} ({win_pct}% win rate) over {gp} games."
+            )
+    if point_diff is not None:
+        try:
+            pd = int(float(point_diff))
+            if pd > 0:
+                insights.append(
+                    f"Positive {_sport_noun(sport)} differential of +{pd} indicates they "
+                    f"consistently outplay opponents on the scoreboard."
+                )
+            elif pd < 0:
+                insights.append(
+                    f"{_sport_noun(sport).capitalize()} differential of {pd} signals "
+                    f"they are getting outplayed more often than not this season."
+                )
+        except (TypeError, ValueError):
+            pass
+    if form:
+        wins_5 = form.count("W")
+        losses_5 = form.count("L")
+        draws_5 = form.count("D")
+        form_str = "-".join(form)
+        if wins_5 >= 4:
+            insights.append(
+                f"Red-hot recent form ({form_str}). Momentum is firmly on their side."
+            )
+        elif losses_5 >= 4:
+            insights.append(
+                f"Alarming recent form ({form_str}). Confidence and cohesion are question marks."
+            )
+        else:
+            insights.append(
+                f"Recent form: {form_str} ({wins_5}W-{draws_5}D-{losses_5}L in last {len(form)})."
+            )
+    if team.get("standing_summary"):
+        insights.append(f"League position: {team['standing_summary']}.")
 
-    elif sport == "american_football":
-        if stats.get("passing_offense", 0) >= 90:
-            insights.append(f"Elite passing offense ({stats['passing_offense']}/100) creates explosive plays. The quarterback can dissect any coverage scheme.")
-        if stats.get("rushing_offense", 0) >= 90:
-            insights.append(f"Dominant rushing attack ({stats['rushing_offense']}/100) controls time of possession and wears down defenses. Play-action becomes devastating.")
-        if stats.get("coaching", 0) >= 90:
-            insights.append(f"Superior coaching ({stats['coaching']}/100) means they consistently make better halftime adjustments and game plans than opponents.")
-        if stats.get("clutch", 0) >= 90:
-            insights.append(f"Exceptional clutch performance ({stats['clutch']}/100) - this team has ice in their veins in pressure situations. Fourth-quarter comeback ability is elite.")
-        if stats.get("red_zone", 0) >= 88:
-            insights.append(f"Red zone efficiency ({stats['red_zone']}/100) means they convert scoring opportunities into touchdowns rather than settling for field goals.")
-
+    if not insights:
+        insights.append(
+            f"Limited performance data is available for {name} this season. "
+            f"Ratings are based on what has been recorded to date."
+        )
     return insights
 
 
+def _derive_strengths(team: Dict[str, Any]) -> List[str]:
+    stats = team["stats"]
+    out: List[str] = []
+    if stats.get("attack", 0) >= 75:
+        out.append("Potent scoring output")
+    if stats.get("defense", 0) >= 75:
+        out.append("Stingy defense")
+    if stats.get("efficiency", 0) >= 70:
+        out.append("Converts talent into wins")
+    if stats.get("differential", 0) >= 70:
+        out.append("Controls games on the scoreboard")
+    if stats.get("form", 0) >= 70:
+        out.append("Strong recent form")
+    if stats.get("consistency", 0) >= 75:
+        out.append("Avoids bad losses")
+    if not out:
+        out.append("Balanced profile without glaring flaws")
+    return out
+
+
+def _derive_weaknesses(team: Dict[str, Any]) -> List[str]:
+    stats = team["stats"]
+    out: List[str] = []
+    if stats.get("attack", 0) < 55:
+        out.append("Struggles to generate offense")
+    if stats.get("defense", 0) < 55:
+        out.append("Leaky defense")
+    if stats.get("efficiency", 0) < 50:
+        out.append("Poor win rate relative to opportunities")
+    if stats.get("differential", 0) < 45:
+        out.append("Frequently outscored")
+    if stats.get("form", 0) < 40:
+        out.append("Cold recent stretch")
+    if stats.get("consistency", 0) < 55:
+        out.append("Prone to losses in clusters")
+    if not out:
+        out.append("No clear statistical weakness")
+    return out
+
+
+def _generate_recommendations(team: Dict[str, Any]) -> List[str]:
+    stats = team["stats"]
+    sport = team["sport"]
+    recs: List[str] = []
+    if stats.get("attack", 0) < 60:
+        if sport == "soccer":
+            recs.append(
+                "Generating more high-quality chances should be the top priority. "
+                "Consider investing in a proven finisher or increasing attacking risk in build-up."
+            )
+        else:
+            recs.append(
+                "Scoring output is below par. Explore pace/volume-of-possession increases "
+                "or target a reliable offensive contributor."
+            )
+    if stats.get("defense", 0) < 60:
+        if sport == "soccer":
+            recs.append(
+                "Conceding too readily. Tightening defensive shape and improving ball-winning "
+                "in midfield would reduce opponents' high-quality chances."
+            )
+        else:
+            recs.append(
+                "Opponents are scoring too easily. Focus on defensive scheme discipline and shoring "
+                "up transition defense."
+            )
+    if stats.get("form", 0) < 50:
+        recs.append(
+            "Recent form is a concern. Short-term tactical adjustments and player rotation "
+            "could arrest the slide before it calcifies into a pattern."
+        )
+    if stats.get("consistency", 0) < 55:
+        recs.append(
+            "Losses are coming in clusters. Addressing effort/focus issues and tightening "
+            "pre-match preparation could smooth out performance."
+        )
+    if not recs:
+        recs.append(
+            f"This is a well-constructed side with no obvious areas of underperformance. "
+            f"Focus on managing workload and sustaining current levels across the remainder of the season."
+        )
+    return recs
+
+
 def analyze_team(team: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate comprehensive tactical analysis for a single team."""
     stats = team["stats"]
     overall = _calculate_overall_rating(stats)
     identity = _identify_tactical_identity(team)
     insights = _generate_key_insights(team)
+    strengths = _derive_strengths(team)
+    weaknesses = _derive_weaknesses(team)
 
     sorted_stats = sorted(stats.items(), key=lambda x: x[1], reverse=True)
-    top_attributes = [(k, v, _get_stat_tier(v)) for k, v, in sorted_stats[:3]]
-    weak_attributes = [(k, v, _get_stat_tier(v)) for k, v in sorted_stats[-3:]]
+    top_attributes = [
+        {"name": k, "value": v, "tier": _get_stat_tier(v), "label": STAT_LABELS.get(k, k)}
+        for k, v in sorted_stats[:3]
+    ]
+    weak_attributes = [
+        {"name": k, "value": v, "tier": _get_stat_tier(v), "label": STAT_LABELS.get(k, k)}
+        for k, v in sorted_stats[-3:]
+    ]
 
     tactical_recommendations = _generate_recommendations(team)
 
@@ -137,186 +328,67 @@ def analyze_team(team: Dict[str, Any]) -> Dict[str, Any]:
         "team_id": team["id"],
         "team_name": team["name"],
         "sport": team["sport"],
+        "league": team.get("league", ""),
+        "country": team.get("country", ""),
+        "logo_color": team.get("logo_color", "#64748b"),
+        "logo_url": team.get("logo_url"),
         "overall_rating": overall,
         "tactical_identity": identity,
-        "formation": team["formation"],
-        "style": team["style"],
+        "record_summary": _record_string(team),
+        "standing_summary": team.get("standing_summary", ""),
         "stats": stats,
-        "top_attributes": [{"name": a[0], "value": a[1], "tier": a[2]} for a in top_attributes],
-        "weak_attributes": [{"name": a[0], "value": a[1], "tier": a[2]} for a in weak_attributes],
+        "stat_labels": STAT_LABELS,
+        "top_attributes": top_attributes,
+        "weak_attributes": weak_attributes,
         "key_insights": insights,
-        "strengths": team["strengths"],
-        "weaknesses": team["weaknesses"],
-        "key_players": team["key_players"],
-        "tactical_notes": team["tactical_notes"],
+        "strengths": strengths,
+        "weaknesses": weaknesses,
         "tactical_recommendations": tactical_recommendations,
         "season_record": team.get("season_record", {}),
-        "recent_form": team["recent_form"],
-    }
-
-
-def _generate_recommendations(team: Dict[str, Any]) -> List[str]:
-    """Generate tactical recommendations for a team."""
-    recs = []
-    stats = team["stats"]
-    sport = team["sport"]
-
-    if sport == "soccer":
-        if stats.get("set_pieces", 0) < 80:
-            recs.append("Invest in set-piece coaching. Dead-ball situations account for ~30% of goals in top leagues, and this area is underperforming.")
-        if stats.get("pace", 0) < 82:
-            recs.append("Consider adding pace in wide areas or up front to provide a counter-attacking outlet and stretch opposition defenses.")
-        if stats.get("pressing", 0) < 85:
-            recs.append("Improving pressing coordination could recover the ball higher up the pitch, creating more scoring opportunities from turnovers.")
-        if stats.get("crossing", 0) < 80:
-            recs.append("Wide delivery quality could be improved. Better crossing would unlock more chances from open play.")
-
-    elif sport == "basketball":
-        if stats.get("three_point", 0) < 83:
-            recs.append("Improving 3-point shooting volume and efficiency would space the floor better and open up driving lanes.")
-        if stats.get("fast_break", 0) < 82:
-            recs.append("Pushing pace in transition could generate easier scoring opportunities before defenses set up.")
-        if stats.get("depth", 0) < 82:
-            recs.append("Roster depth is a concern for playoff rotations. Adding reliable bench contributors would help manage minutes.")
-
-    elif sport == "american_football":
-        if stats.get("rushing_offense", 0) < 80:
-            recs.append("Establishing a more consistent ground game would take pressure off the quarterback and control time of possession.")
-        if stats.get("pass_defense", 0) < 83:
-            recs.append("Secondary coverage needs improvement. Elite passing teams will exploit this weakness in critical matchups.")
-        if stats.get("discipline", 0) < 82:
-            recs.append("Penalty discipline needs attention. Self-inflicted mistakes extend drives and kill momentum.")
-
-    if not recs:
-        recs.append(f"This is an elite, well-rounded squad. Focus on maintaining consistency and managing workload for key players across the season.")
-
-    return recs
-
-
-def analyze_matchup(team1: Dict[str, Any], team2: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate comprehensive head-to-head matchup analysis."""
-    stats1 = team1["stats"]
-    stats2 = team2["stats"]
-    overall1 = _calculate_overall_rating(stats1)
-    overall2 = _calculate_overall_rating(stats2)
-
-    # Calculate advantages
-    stat_comparison = {}
-    team1_advantages = []
-    team2_advantages = []
-
-    for key in stats1:
-        if key in stats2:
-            diff = stats1[key] - stats2[key]
-            stat_comparison[key] = {
-                "team1_value": stats1[key],
-                "team2_value": stats2[key],
-                "difference": diff,
-                "advantage": team1["name"] if diff > 0 else team2["name"] if diff < 0 else "Even",
-            }
-            if diff >= 3:
-                team1_advantages.append((key, diff))
-            elif diff <= -3:
-                team2_advantages.append((key, abs(diff)))
-
-    # Win probability
-    total_diff = overall1 - overall2
-    base_prob = 50 + (total_diff * 2.5)
-    team1_win_prob = max(15, min(85, base_prob))
-    team2_win_prob = 100 - team1_win_prob
-
-    # Key battles
-    key_battles = _identify_key_battles(team1, team2)
-
-    # Tactical analysis
-    tactical_analysis = _generate_matchup_analysis(team1, team2, team1_advantages, team2_advantages)
-
-    # Prediction narrative
-    prediction = _generate_prediction(team1, team2, team1_win_prob)
-
-    return {
-        "team1": {
-            "id": team1["id"],
-            "name": team1["name"],
-            "overall_rating": overall1,
-            "formation": team1["formation"],
-            "style": team1["style"],
-            "stats": stats1,
-            "strengths": team1["strengths"],
-            "weaknesses": team1["weaknesses"],
-            "key_players": team1["key_players"],
-        },
-        "team2": {
-            "id": team2["id"],
-            "name": team2["name"],
-            "overall_rating": overall2,
-            "formation": team2["formation"],
-            "style": team2["style"],
-            "stats": stats2,
-            "strengths": team2["strengths"],
-            "weaknesses": team2["weaknesses"],
-            "key_players": team2["key_players"],
-        },
-        "stat_comparison": stat_comparison,
-        "team1_advantages": [{"stat": a[0], "margin": a[1]} for a in sorted(team1_advantages, key=lambda x: x[1], reverse=True)],
-        "team2_advantages": [{"stat": a[0], "margin": a[1]} for a in sorted(team2_advantages, key=lambda x: x[1], reverse=True)],
-        "win_probability": {
-            "team1": round(team1_win_prob, 1),
-            "team2": round(team2_win_prob, 1),
-        },
-        "key_battles": key_battles,
-        "tactical_analysis": tactical_analysis,
-        "prediction": prediction,
+        "recent_form": team.get("recent_form", []),
+        "source": team.get("source", "ESPN"),
     }
 
 
 def _identify_key_battles(team1: Dict[str, Any], team2: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Identify key tactical battles in the matchup."""
-    battles = []
+    battles: List[Dict[str, str]] = []
     sport = team1["sport"]
+    s1 = team1["stats"]
+    s2 = team2["stats"]
+    noun = _sport_noun_plural(sport)
 
-    if sport == "soccer":
-        battles.append({
-            "battle": "Midfield Control",
-            "description": f"{team1['name']}'s midfield (rated {team1['stats'].get('midfield', 'N/A')}) vs {team2['name']}'s midfield (rated {team2['stats'].get('midfield', 'N/A')}). Whoever controls the middle of the park will dictate the tempo and create chances.",
-        })
-        battles.append({
-            "battle": "Press vs Possession",
-            "description": f"{team1['name']}'s pressing ({team1['stats'].get('pressing', 'N/A')}) against {team2['name']}'s ball retention ({team2['stats'].get('possession', 'N/A')}). Can the press disrupt the build-up, or will composure on the ball prevail?",
-        })
-        battles.append({
-            "battle": "Attack vs Defense",
-            "description": f"{team1['name']}'s attack ({team1['stats'].get('attack', 'N/A')}) meets {team2['name']}'s defense ({team2['stats'].get('defense', 'N/A')}). The team that wins this battle will likely win the match.",
-        })
-
-    elif sport == "basketball":
-        battles.append({
-            "battle": "Perimeter vs Interior",
-            "description": f"{team1['name']}'s 3PT shooting ({team1['stats'].get('three_point', 'N/A')}) vs {team2['name']}'s post play ({team2['stats'].get('post_play', 'N/A')}). A classic clash of offensive philosophies.",
-        })
-        battles.append({
-            "battle": "Star Power Duel",
-            "description": f"{team1['key_players'][0]} vs {team2['key_players'][0]}. The marquee individual matchup that could swing the series.",
-        })
-        battles.append({
-            "battle": "Pace Control",
-            "description": f"{team1['name']}'s fast break ({team1['stats'].get('fast_break', 'N/A')}) vs {team2['name']}'s half-court game. Which team imposes its preferred tempo?",
-        })
-
-    elif sport == "american_football":
-        battles.append({
-            "battle": "Quarterback Duel",
-            "description": f"{team1['key_players'][0]} vs {team2['key_players'][0]}. The quarterback matchup often determines the outcome in the NFL.",
-        })
-        battles.append({
-            "battle": "Run Game vs Run Defense",
-            "description": f"{team1['name']}'s rushing offense ({team1['stats'].get('rushing_offense', 'N/A')}) against {team2['name']}'s rush defense ({team2['stats'].get('rush_defense', 'N/A')}). Establishing the run changes everything.",
-        })
-        battles.append({
-            "battle": "Coaching Chess Match",
-            "description": f"Coaching ratings: {team1['name']} ({team1['stats'].get('coaching', 'N/A')}) vs {team2['name']} ({team2['stats'].get('coaching', 'N/A')}). In-game adjustments and game plans will be crucial.",
-        })
-
+    battles.append({
+        "battle": "Attack vs Defense",
+        "description": (
+            f"{team1['name']}'s attack ({s1.get('attack', 0)}/100) meets "
+            f"{team2['name']}'s defense ({s2.get('defense', 0)}/100). "
+            f"Whichever side wins this matchup typically wins the game."
+        ),
+    })
+    battles.append({
+        "battle": "Defense vs Attack",
+        "description": (
+            f"Conversely, {team2['name']}'s attack ({s2.get('attack', 0)}/100) "
+            f"tests {team1['name']}'s defense ({s1.get('defense', 0)}/100). "
+            f"Expect the team with the edge here to keep more {noun} off the board."
+        ),
+    })
+    battles.append({
+        "battle": "Momentum Check",
+        "description": (
+            f"{team1['name']} enters with form {s1.get('form', 0)}/100, "
+            f"{team2['name']} with {s2.get('form', 0)}/100. Short-term momentum "
+            f"often tips tight contests."
+        ),
+    })
+    battles.append({
+        "battle": "Efficiency Battle",
+        "description": (
+            f"Win-rate efficiency: {team1['name']} {s1.get('efficiency', 0)}/100 vs "
+            f"{team2['name']} {s2.get('efficiency', 0)}/100. The team that converts "
+            f"more advantages into results has the edge on paper."
+        ),
+    })
     return battles
 
 
@@ -326,112 +398,193 @@ def _generate_matchup_analysis(
     t1_advantages: List[Tuple[str, int]],
     t2_advantages: List[Tuple[str, int]],
 ) -> List[str]:
-    """Generate narrative matchup analysis."""
-    analysis = []
-
+    analysis: List[str] = []
     if len(t1_advantages) > len(t2_advantages):
         analysis.append(
-            f"{team1['name']} holds the statistical edge in {len(t1_advantages)} categories compared to {team2['name']}'s {len(t2_advantages)}. "
-            f"This suggests {team1['name']} has more avenues to victory."
+            f"{team1['name']} holds the statistical edge in "
+            f"{len(t1_advantages)} categories compared to {team2['name']}'s "
+            f"{len(t2_advantages)}, suggesting more avenues to victory."
         )
     elif len(t2_advantages) > len(t1_advantages):
         analysis.append(
-            f"{team2['name']} holds the statistical edge in {len(t2_advantages)} categories compared to {team1['name']}'s {len(t1_advantages)}. "
-            f"This suggests {team2['name']} enters with more advantages."
+            f"{team2['name']} holds the statistical edge in "
+            f"{len(t2_advantages)} categories compared to {team1['name']}'s "
+            f"{len(t1_advantages)}, entering with the broader set of advantages."
         )
     else:
         analysis.append(
-            f"This is an incredibly evenly matched contest. Both teams hold advantages in {len(t1_advantages)} statistical categories each. Expect a tightly contested affair."
+            f"An evenly matched contest. Both teams hold advantages in "
+            f"{len(t1_advantages)} categories each — expect a tight affair."
         )
 
-    # Style clash analysis
-    analysis.append(
-        f"Style clash: {team1['name']} ({team1['style']}) vs {team2['name']} ({team2['style']}). "
-        f"This creates a fascinating tactical battle of contrasting philosophies."
-    )
-
-    # Weakness exploitation
-    for weakness in team2["weaknesses"][:2]:
-        for strength in team1["strengths"][:2]:
+    # Record-based narrative
+    for team in (team1, team2):
+        record = team.get("raw_record") or {}
+        gp = record.get("gamesPlayed")
+        point_diff = record.get("pointDifferential")
+        if gp and point_diff is not None:
             analysis.append(
-                f"{team1['name']} can exploit {team2['name']}'s weakness in '{weakness}' using their strength in '{strength}'."
+                f"{team['name']}'s season profile: "
+                f"{_record_string(team)} record with a "
+                f"{int(float(point_diff)):+d} {_sport_noun(team['sport'])} differential over {int(gp)} games."
             )
-            break
 
-    for weakness in team1["weaknesses"][:2]:
-        for strength in team2["strengths"][:2]:
-            analysis.append(
-                f"Conversely, {team2['name']} can target {team1['name']}'s vulnerability: '{weakness}' through their '{strength}'."
-            )
-            break
-
+    # Contrasting strengths
+    for stat, margin in t1_advantages[:1]:
+        analysis.append(
+            f"{team1['name']} is materially better in {STAT_LABELS.get(stat, stat)} "
+            f"(margin of {margin}) — expect them to lean on this edge."
+        )
+    for stat, margin in t2_advantages[:1]:
+        analysis.append(
+            f"{team2['name']} is materially better in {STAT_LABELS.get(stat, stat)} "
+            f"(margin of {margin}) — a natural avenue for them to control the game."
+        )
     return analysis
 
 
 def _generate_prediction(team1: Dict[str, Any], team2: Dict[str, Any], t1_prob: float) -> Dict[str, Any]:
-    """Generate match prediction with narrative."""
     sport = team1["sport"]
 
     if t1_prob > 60:
-        favorite = team1["name"]
-        underdog = team2["name"]
-        confidence = "High"
+        favorite, underdog, confidence = team1["name"], team2["name"], "High"
     elif t1_prob > 52:
-        favorite = team1["name"]
-        underdog = team2["name"]
-        confidence = "Moderate"
+        favorite, underdog, confidence = team1["name"], team2["name"], "Moderate"
     elif t1_prob > 48:
-        favorite = "Toss-up"
-        underdog = ""
-        confidence = "Low"
+        favorite, underdog, confidence = "Toss-up", "", "Low"
     elif t1_prob > 40:
-        favorite = team2["name"]
-        underdog = team1["name"]
-        confidence = "Moderate"
+        favorite, underdog, confidence = team2["name"], team1["name"], "Moderate"
     else:
-        favorite = team2["name"]
-        underdog = team1["name"]
-        confidence = "High"
+        favorite, underdog, confidence = team2["name"], team1["name"], "High"
+
+    r1 = team1.get("raw_record") or {}
+    r2 = team2.get("raw_record") or {}
+
+    def _ppg(record: Dict[str, Any], key: str) -> float:
+        avg = record.get(f"avg{key.capitalize()}")
+        try:
+            if avg is not None:
+                return float(avg)
+        except (TypeError, ValueError):
+            pass
+        total = record.get(key)
+        gp = record.get("gamesPlayed") or 0
+        try:
+            return float(total) / float(gp) if total is not None and gp else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    atk1 = _ppg(r1, "pointsFor")
+    def1 = _ppg(r1, "pointsAgainst")
+    atk2 = _ppg(r2, "pointsFor")
+    def2 = _ppg(r2, "pointsAgainst")
+
+    exp_t1 = max(0.0, (atk1 + def2) / 2)
+    exp_t2 = max(0.0, (atk2 + def1) / 2)
 
     if sport == "soccer":
-        if t1_prob > 55:
-            score_pred = f"{team1['name']} 2-1 {team2['name']}"
-        elif t1_prob < 45:
-            score_pred = f"{team1['name']} 0-2 {team2['name']}"
-        else:
-            score_pred = f"{team1['name']} 1-1 {team2['name']}"
-    elif sport == "basketball":
-        if t1_prob > 55:
-            score_pred = f"{team1['name']} 112-104 {team2['name']}"
-        elif t1_prob < 45:
-            score_pred = f"{team1['name']} 101-115 {team2['name']}"
-        else:
-            score_pred = f"{team1['name']} 108-106 {team2['name']}"
+        s1 = max(0, round(exp_t1))
+        s2 = max(0, round(exp_t2))
+        score_pred = f"{team1['name']} {s1}-{s2} {team2['name']}"
     else:
-        if t1_prob > 55:
-            score_pred = f"{team1['name']} 27-20 {team2['name']}"
-        elif t1_prob < 45:
-            score_pred = f"{team1['name']} 17-24 {team2['name']}"
-        else:
-            score_pred = f"{team1['name']} 24-21 {team2['name']}"
+        s1 = max(0, int(round(exp_t1)))
+        s2 = max(0, int(round(exp_t2)))
+        score_pred = f"{team1['name']} {s1}-{s2} {team2['name']}"
 
-    narrative = ""
     if favorite == "Toss-up":
         narrative = (
-            f"This is a genuine coin-flip matchup. Both {team1['name']} and {team2['name']} have the quality to win. "
-            f"The result will likely come down to which team executes their game plan better on the day and which key players step up in crucial moments."
+            f"A genuine coin-flip. Both {team1['name']} and {team2['name']} have the "
+            f"profile to win — the result will hinge on execution and key-moment performance."
         )
     else:
+        t1_str = team1.get("strengths") or []
+        t2_str = team2.get("strengths") or []
         narrative = (
-            f"{favorite} enters as the favorite with a {confidence.lower()} confidence edge. "
-            f"However, {underdog} has the tools to cause an upset, particularly through their strengths in "
-            f"{', '.join(team1['strengths'][:2]) if underdog == team1['name'] else ', '.join(team2['strengths'][:2])}. "
-            f"The key to the game will be whether {favorite} can impose their preferred style of play."
+            f"{favorite} enters as the favorite with {confidence.lower()} confidence, "
+            f"based on season-long production and recent form. {underdog} can swing the "
+            f"contest by leaning on their strengths "
+            f"({', '.join(_derive_strengths(team1)[:2]) if underdog == team1['name'] else ', '.join(_derive_strengths(team2)[:2])})."
         )
+        # suppress unused vars warning (kept for potential future use)
+        _ = t1_str, t2_str
 
     return {
         "favorite": favorite,
         "confidence": confidence,
         "score_prediction": score_pred,
         "narrative": narrative,
+    }
+
+
+def analyze_matchup(team1: Dict[str, Any], team2: Dict[str, Any]) -> Dict[str, Any]:
+    stats1 = team1["stats"]
+    stats2 = team2["stats"]
+    overall1 = _calculate_overall_rating(stats1)
+    overall2 = _calculate_overall_rating(stats2)
+
+    stat_comparison: Dict[str, Any] = {}
+    t1_adv: List[Tuple[str, int]] = []
+    t2_adv: List[Tuple[str, int]] = []
+    for key in stats1:
+        if key not in stats2:
+            continue
+        diff = stats1[key] - stats2[key]
+        stat_comparison[key] = {
+            "team1_value": stats1[key],
+            "team2_value": stats2[key],
+            "difference": diff,
+            "advantage": team1["name"] if diff > 0 else team2["name"] if diff < 0 else "Even",
+            "label": STAT_LABELS.get(key, key),
+        }
+        if diff >= 5:
+            t1_adv.append((key, diff))
+        elif diff <= -5:
+            t2_adv.append((key, abs(diff)))
+
+    total_diff = overall1 - overall2
+    base_prob = 50 + total_diff * 2.0
+    team1_win_prob = max(15.0, min(85.0, base_prob))
+    team2_win_prob = 100.0 - team1_win_prob
+
+    key_battles = _identify_key_battles(team1, team2)
+    tactical_analysis = _generate_matchup_analysis(team1, team2, t1_adv, t2_adv)
+    prediction = _generate_prediction(team1, team2, team1_win_prob)
+
+    def _matchup_team(team: Dict[str, Any], overall: float) -> Dict[str, Any]:
+        return {
+            "id": team["id"],
+            "name": team["name"],
+            "overall_rating": overall,
+            "league": team.get("league", ""),
+            "country": team.get("country", ""),
+            "logo_color": team.get("logo_color", "#64748b"),
+            "logo_url": team.get("logo_url"),
+            "stats": team["stats"],
+            "strengths": _derive_strengths(team),
+            "weaknesses": _derive_weaknesses(team),
+            "season_record": team.get("season_record", {}),
+            "record_summary": _record_string(team),
+            "recent_form": team.get("recent_form", []),
+        }
+
+    return {
+        "team1": _matchup_team(team1, overall1),
+        "team2": _matchup_team(team2, overall2),
+        "stat_comparison": stat_comparison,
+        "stat_labels": STAT_LABELS,
+        "team1_advantages": [
+            {"stat": a[0], "margin": a[1], "label": STAT_LABELS.get(a[0], a[0])}
+            for a in sorted(t1_adv, key=lambda x: x[1], reverse=True)
+        ],
+        "team2_advantages": [
+            {"stat": a[0], "margin": a[1], "label": STAT_LABELS.get(a[0], a[0])}
+            for a in sorted(t2_adv, key=lambda x: x[1], reverse=True)
+        ],
+        "win_probability": {
+            "team1": round(team1_win_prob, 1),
+            "team2": round(team2_win_prob, 1),
+        },
+        "key_battles": key_battles,
+        "tactical_analysis": tactical_analysis,
+        "prediction": prediction,
     }

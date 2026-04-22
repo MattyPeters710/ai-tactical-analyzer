@@ -13,57 +13,67 @@ export interface TeamSummary {
   league: string;
   country: string;
   logo_color: string;
-  formation: string;
-  style: string;
-  recent_form: string[];
+  logo_url?: string | null;
+  abbreviation?: string | null;
+  short_name?: string | null;
 }
 
 export interface TeamDetails extends TeamSummary {
+  alt_color?: string | null;
+  record_summary?: string;
+  standing_summary?: string;
   stats: Record<string, number>;
-  key_players: string[];
-  tactical_notes: string;
-  strengths: string[];
-  weaknesses: string[];
+  recent_form: string[];
   season_record: Record<string, number>;
+  source?: string;
 }
 
 export interface StatAttribute {
   name: string;
   value: number;
   tier: string;
+  label?: string;
 }
 
 export interface TeamAnalysis {
   team_id: string;
   team_name: string;
   sport: string;
+  league: string;
+  country: string;
+  logo_color: string;
+  logo_url?: string | null;
   overall_rating: number;
   tactical_identity: string;
-  formation: string;
-  style: string;
+  record_summary: string;
+  standing_summary: string;
   stats: Record<string, number>;
+  stat_labels: Record<string, string>;
   top_attributes: StatAttribute[];
   weak_attributes: StatAttribute[];
   key_insights: string[];
   strengths: string[];
   weaknesses: string[];
-  key_players: string[];
-  tactical_notes: string;
   tactical_recommendations: string[];
   season_record: Record<string, number>;
   recent_form: string[];
+  source: string;
 }
 
 export interface MatchupTeam {
   id: string;
   name: string;
   overall_rating: number;
-  formation: string;
-  style: string;
+  league: string;
+  country: string;
+  logo_color: string;
+  logo_url?: string | null;
   stats: Record<string, number>;
   strengths: string[];
   weaknesses: string[];
-  key_players: string[];
+  season_record: Record<string, number>;
+  record_summary: string;
+  recent_form: string[];
 }
 
 export interface StatComparison {
@@ -71,6 +81,7 @@ export interface StatComparison {
   team2_value: number;
   difference: number;
   advantage: string;
+  label?: string;
 }
 
 export interface KeyBattle {
@@ -85,12 +96,19 @@ export interface Prediction {
   narrative: string;
 }
 
+export interface StatAdvantage {
+  stat: string;
+  margin: number;
+  label?: string;
+}
+
 export interface MatchupAnalysis {
   team1: MatchupTeam;
   team2: MatchupTeam;
   stat_comparison: Record<string, StatComparison>;
-  team1_advantages: { stat: string; margin: number }[];
-  team2_advantages: { stat: string; margin: number }[];
+  stat_labels: Record<string, string>;
+  team1_advantages: StatAdvantage[];
+  team2_advantages: StatAdvantage[];
   win_probability: { team1: number; team2: number };
   key_battles: KeyBattle[];
   tactical_analysis: string[];
