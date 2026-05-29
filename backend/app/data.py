@@ -16,6 +16,7 @@ SPORTS = [
     {"id": "soccer", "name": "Soccer", "icon": "goal"},
     {"id": "basketball", "name": "Basketball", "icon": "basketball"},
     {"id": "american_football", "name": "American Football", "icon": "football"},
+    {"id": "cricket", "name": "Cricket", "icon": "cricket"},
 ]
 
 
