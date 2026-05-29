@@ -99,6 +99,7 @@ ai-tactical-analyzer/
 |   |   |-- main.py          # FastAPI application
 |   |   |-- analyzer.py      # Analysis engine
 |   |   |-- data.py          # Team database
+|   |   |-- sports_api.py    # ESPN API client
 |   |-- pyproject.toml       # Python dependencies
 |   |-- poetry.lock
 |   |-- README.md
@@ -141,32 +142,51 @@ VITE_API_URL=http://localhost:8000
 ## Data Model
 
 The system includes comprehensive data for:
-- **Soccer**: 17 major teams (Premier League, La Liga, Bundesliga)
+- **Soccer**: 17+ major teams (Premier League, La Liga, Bundesliga, Serie A, Ligue 1)
 - **Basketball**: 6 NBA teams
 - **American Football**: 5 NFL teams
+- **Cricket**: 10 IPL teams (Indian Premier League)
 
 Each team includes:
-- 10+ tactical attributes (attack, defense, possession, etc.)
-- Formation and playing style
-- Key players and tactical notes
-- Strengths and weaknesses
-- Recent form and season records
+- 5 core tactical attributes (attack, defense, efficiency, differential, consistency)
+- Recent form tracking (W/D/L history)
+- Season record and statistics
+- Team metadata (league, location, branding)
+- Sport-specific metrics (runs for cricket, goals for soccer, points for others)
 
 ## Analysis Features
 
 ### Team Analysis
 - Overall rating calculation
 - Tactical identity classification
-- Key insights generation
+- Key insights generation (sport-specific)
 - Strength/weakness analysis
 - Tactical recommendations
 
 ### Matchup Analysis
 - Statistical comparison across all attributes
 - Win probability calculation
-- Key tactical battles identification
+- Key tactical battles identification (sport-specific)
 - Predictive scoring
 - Narrative analysis
+
+## Sport-Specific Features
+
+### Cricket Analysis
+- **Batting vs Bowling** - Attack/Defense matchup analysis
+- **Run Differential** - Scoring dominance tracking
+- **Match Prediction** - Score predictions in runs format
+- **Form Tracking** - Win/loss streaks over recent matches
+- **Cricket Terminology** - "Complete Outfit", "Batting Powerhouse", "Bowling Fortress" tactical identities
+
+### Soccer Analysis
+- Goal-based metrics and predictions
+- Possession and efficiency tracking
+- Formation-aware tactical identity
+
+### Basketball/American Football Analysis
+- Points-based analysis and predictions
+- Win percentage and efficiency metrics
 
 ## Development
 
