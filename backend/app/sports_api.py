@@ -45,6 +45,9 @@ SPORT_LEAGUES: Dict[str, List[Tuple[str, str, str]]] = {
     "american_football": [
         ("football", "nfl", "NFL"),
     ],
+    "cricket": [
+        ("cricket", "ipl", "IPL"),
+    ],
 }
 
 
@@ -397,6 +400,16 @@ def _build_season_record(sport: str, record: Dict[str, Any]) -> Dict[str, Any]:
             result["goals_for"] = int(points_for)
         if points_against is not None:
             result["goals_against"] = int(points_against)
+    elif sport == "cricket":
+        # Cricket uses runs, not points
+        if points_for is not None:
+            result["runs_for"] = int(points_for)
+        if points_against is not None:
+            result["runs_against"] = int(points_against)
+        if avg_for is not None:
+            result["avg_runs_for"] = round(avg_for, 1)
+        if avg_against is not None:
+            result["avg_runs_against"] = round(avg_against, 1)
     else:
         if avg_for is not None:
             result["points_per_game"] = round(avg_for, 1)
@@ -448,6 +461,15 @@ def compute_stats(sport: str, record: Dict[str, Any]) -> Dict[str, int]:
         win_pct = wins / gp if gp else 0
         efficiency = _clamp(win_pct * 100)
         differential = _clamp(50 + per_game_diff * 5)
+    elif sport == "cricket":
+        # Scoring 160 runs per match = elite (100). 100 runs = 0.
+        attack = _clamp((avg_for - 100) * 1.67)
+        # Conceding 180 = elite (100). 160 = 0.
+        defense = _clamp((180 - avg_against) * 5)
+        win_pct = wins / gp if gp else 0
+        efficiency = _clamp(win_pct * 100)
+        # +20 run diff/game = elite (100). 0 = 50. -20 = 0.
+        differential = _clamp(50 + per_game_diff * 2.5)
     else:  # american_football
         attack = _clamp((avg_for - 17) * 6 + 55)
         defense = _clamp((24 - avg_against) * 6 + 55)
